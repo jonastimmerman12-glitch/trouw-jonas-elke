@@ -1,0 +1,40 @@
+<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+:root{--sage:#657b65;--dark:#344a39;--cream:#f7f5ee;--border:#d8e1d4}*{box-sizing:border-box}body{background:var(--cream);font:16px/1.65 Arial,sans-serif;color:var(--dark);margin:0;padding:22px 8px}.panel{max-width:680px;margin:auto;background:#fffdfa;padding:clamp(18px,4vw,35px);border:1px solid var(--border);border-radius:18px}h1{font:italic 37px Georgia,serif;margin:0 0 8px}p{margin:8px 0 18px}label{display:block;font-weight:600;margin:15px 0 6px}input,select,textarea{font:inherit;width:100%;padding:12px;border:1px solid #adbda9;border-radius:8px;background:#fff;color:#26372b}textarea{min-height:90px}button{background:var(--sage);color:white;border:0;border-radius:30px;padding:13px 23px;font-size:15px;cursor:pointer;margin-top:17px}button:disabled{opacity:.5;cursor:wait}a{color:#385e43}.status{margin-top:16px;font-weight:600}.error{color:#9f3434}.success{color:#356a49}.gift{border:1px solid var(--border);background:white;border-radius:12px;padding:18px;margin:15px 0}.gift h2{font:italic 25px Georgia,serif;margin:0 0 5px}.gift p{margin:5px 0}.hint{font-size:13px;color:#637160}.hidden{display:none}</style></head><body>
+<div class="panel">
+<? if (page === 'rsvp') { ?>
+<h1>Ben je erbij?</h1><p>Op vrijdag 25 juni 2027 vieren Jonas & Elke hun liefde. Laat ons weten of je kunt komen.</p>
+<form id="rsvpForm">
+<label for="name">Je naam *</label><input name="name" id="name" required maxlength="120" autocomplete="name">
+<label for="attendance">Ben je aanwezig? *</label><select name="attendance" id="attendance" required><option value="">Kies een antwoord</option><option value="Ja">Ja, ik kom graag!</option><option value="Nee">Helaas, ik kan er niet bij zijn</option></select>
+<label for="guests">Aantal personen inclusief jezelf *</label><input type="number" name="guests" id="guests" min="0" max="15" value="1" required>
+<label for="diet">Dieetwensen of allergieën (optioneel)</label><textarea name="diet" id="diet" maxlength="350"></textarea>
+<label for="note">Berichtje voor Jonas & Elke (optioneel)</label><textarea name="note" id="note" maxlength="500"></textarea>
+<input name="website" class="hidden" tabindex="-1" autocomplete="off" aria-hidden="true">
+<p class="hint">Je antwoorden worden alleen gebruikt om onze trouwdag te organiseren. De gegevens worden opgeslagen in ons privé-overzicht.</p>
+<button id="submitBtn" type="submit">Verstuur je antwoord</button><p class="status" id="status" role="status" aria-live="polite"></p></form>
+<? } else { ?>
+<h1>Onze cadeaulijst</h1><p>Jullie aanwezigheid is het mooiste cadeau. Voor wie graag iets wil schenken, vind je hieronder onze wensen. Een gereserveerd cadeau kan niet opnieuw gekozen worden.</p><div id="giftList"><p>Cadeaus laden…</p></div><p class="hint">Je naam is alleen zichtbaar voor Jonas & Elke. Er worden geen betalingen via deze website uitgevoerd.</p>
+<? } ?>
+</div>
+<script>
+const page = <?= JSON.stringify(page) ?>;
+const qs = s => document.querySelector(s);
+if(page==='rsvp'){
+const f=qs('#rsvpForm'),btn=qs('#submitBtn'),status=qs('#status'),att=qs('#attendance'),guests=qs('#guests');
+att.addEventListener('change',()=>{guests.value=att.value==='Nee'?'0':'1';guests.disabled=att.value==='Nee'});
+f.addEventListener('submit',e=>{e.preventDefault();btn.disabled=true;status.textContent='Je antwoord wordt verstuurd…';status.className='status';
+const data=Object.fromEntries(new FormData(f).entries());data.guests=att.value==='Nee'?0:Number(guests.value);
+google.script.run.withSuccessHandler(()=>{status.textContent='Bedankt! Je antwoord is goed ontvangen. ♡';status.className='status success';f.reset();guests.disabled=false;btn.disabled=false;}).withFailureHandler(err=>{status.textContent=err.message||'Er ging iets mis. Probeer opnieuw.';status.className='status error';btn.disabled=false;}).submitRsvp(data);});
+}else{
+const container=qs('#giftList');let gifts=[];
+function render(){container.replaceChildren();if(!gifts.length){container.textContent='Onze cadeaulijst wordt binnenkort aangevuld.';return}
+gifts.forEach(g=>{const card=document.createElement('article');card.className='gift';const title=document.createElement('h2');title.textContent=g.name;card.append(title);
+if(g.description){const p=document.createElement('p');p.textContent=g.description;card.append(p)}
+if(g.price){const p=document.createElement('p');p.textContent='Richtprijs: €'+g.price;card.append(p)}
+if(g.link){const a=document.createElement('a');a.href=g.link;a.target='_blank';a.rel='noopener noreferrer';a.textContent='Bekijk in winkel';card.append(a)}
+const status=document.createElement('p');status.textContent=g.available?'Beschikbaar':'Reeds gereserveerd';card.append(status);
+if(g.available){const input=document.createElement('input');input.placeholder='Jouw naam';input.maxLength=120;input.setAttribute('aria-label','Naam voor reservering van '+g.name);const btn=document.createElement('button');btn.textContent='Reserveer dit cadeau';const msg=document.createElement('p');msg.className='status';btn.addEventListener('click',()=>{if(input.value.trim().length<2){msg.textContent='Vul eerst je naam in.';return}btn.disabled=true;msg.textContent='Reserveren…';google.script.run.withSuccessHandler(()=>{msg.textContent='Bedankt! Dit cadeau is voor jou gereserveerd.';google.script.run.withSuccessHandler(data=>{gifts=data;render()}).getGifts()}).withFailureHandler(err=>{msg.textContent=err.message||'Reserveren mislukt.';btn.disabled=false;google.script.run.withSuccessHandler(data=>{gifts=data;render()}).getGifts()}).reserveGift({id:g.id,name:input.value})});card.append(input,btn,msg)}
+container.append(card)})}
+google.script.run.withSuccessHandler(data=>{gifts=data;render()}).withFailureHandler(()=>{container.textContent='De cadeaulijst kon niet geladen worden. Probeer het later opnieuw.'}).getGifts();
+}
+</script></body></html>
