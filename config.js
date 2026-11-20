@@ -1,0 +1,1 @@
+// Vul na publicatie van de Google Apps Script webapp hier de /exec-URL in.\nwindow.WEDDING_CONFIG = { backendUrl: '' };\n
